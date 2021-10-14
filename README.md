@@ -18,7 +18,9 @@ To use the widget, you have to install the Scriptable app in the AppStore: https
 
 3. Add a new widget (Scriptable) on your homescreen, select the minimum size and select the script 
 
-4. With the parameters you can now choose the currency you want. 
+4. Add in the parameters section your currency
+
+<img src="https://github.com/olipda/nimiq-widget-ios/blob/master/add_currency.png" style="width: 250px"> 
 
 <br>
 
