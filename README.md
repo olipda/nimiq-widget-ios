@@ -3,6 +3,9 @@ This is a widget for iOS devices that can display the Nimiq course in different 
 
 <br>
 
+<h3>Example</h3>
+<img src="https://github.com/olipda/nimiq-widget-ios/blob/master/example.jpg" style="width: 300px">
+
 ## Installation
 
 To use the widget, you have to install the Scriptable app in the AppStore: https://apps.apple.com/de/app/scriptable/id1405459188
