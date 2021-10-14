@@ -98,6 +98,8 @@ function createWidget() {
 
     let listwidget = new ListWidget()
 
+    listwidget.backgroundColor = Color.black();
+
     let titleStack = listwidget.addStack()
     let appIconElement = titleStack.addImage(nimiqLogo)
     appIconElement.imageSize = new Size(15, 15)
