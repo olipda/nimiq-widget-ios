@@ -1,159 +1,247 @@
-/* =========================================================
+/* 
+=========================================================
     * Widget for the current Nimiq course in different currencies. 
     * Used API: https://www.coingecko.com/en/api/documentation? 
-
             * This widget was created by @olipda
-========================================================= */
+========================================================= 
 
 
-// Make sure to copy the whole code
+Make sure to copy the whole code
 
 
-let currency = args.widgetParameter;
-
-let apiData = await getApiData();
-
-const nimiqLogo = await getNimiqLogo();
+*/
 
 
-let widget = createWidget(); 
+let configs = {
+    BaseAPI: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=nimiq-2&order=market_cap_desc&per_page=100&page=1&sparkline=false',
+}
 
-    if(config.runsInWidget) {
-        Script.setWidget(widget);
-        Script.complete();
-    } else {
-        widget.presentSmall();
+let CurrencyEnum = {
+    EURO: 'euro',
+    USD: 'usd',
+    GBP: 'gbp',
+    CZK: 'czk',
+}
+
+let ColorEnum = {
+    RED: '#c91a23',
+    GREEN: '#30bf4f',
+}
+
+SymboleEnum = {
+    [CurrencyEnum.USD]: String.fromCharCode(0x24),
+    [CurrencyEnum.EURO]: String.fromCharCode(0x20ac),
+    [CurrencyEnum.GBP]: String.fromCharCode(0x163),
+    [CurrencyEnum.CZK]: 'Kč',
+    [null]: '',
 }
 
 
-/* =========================================================
-    * important functions *
-========================================================= */
+
+var AppControll = function () {
+
+    let refreshIntervalValue = 60;
+
+    class ModelData {
+        constructor() {
+            this.currency = args.widgetParameter;
+
+            if (this.currency != null) {
+                let el = []
+                for (var key in CurrencyEnum) {
+                    el.push(CurrencyEnum[key])
+                }
+                if (el.includes(this.currency) == false) {
+                    this.currency = 'FAILED'
+                }
+
+            }
+
+            this.items = []
+        }
+
+        async ReceiveInformationItem(handler) {
+
+            if (this.items.length > 0) {
+                this.items.length = 0
+            }
 
 
-async function getApiData() {
-    const apiUrl = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=nimiq-2&order=market_cap_desc&per_page=100&page=1&sparkline=false"
+            const BaseData = await new Request(configs.BaseAPI, 
+                {
+                headers: {
+                    'cache': 'no-cache'}
+                }).loadJSON();
+            const el = BaseData[0]
 
-    const req = new Request(apiUrl);
 
-    const res = await req.loadJSON();
+            const item = {
+                price: (await this.CurrencyLoader(el.current_price)),
+                img: el.image,
+                id: el.id,
+                changed_price: (await this.LogicalChangeCreator(el.price_change_percentage_24h)),
+            }
 
-    let data = {};
+            this.items = item
 
-    data.price = res.map(obj => obj.current_price);
-    data.changedCoursePercentage = res.map(obj => obj.price_change_percentage_24h);
-    data.nimiqLogoUrl = res.map(obj => obj.image);
 
-    return data;
+            handler(this.items)
 
-}
 
-async function getNimiqLogo() {
-    const req = new Request(apiData.nimiqLogoUrl.toString())
-    const res = await req.loadImage();
+        }
 
-    return res;
-}
+        async CurrencyLoader(value) {
+            let ch = {}
+            switch (this.currency) {
+                case CurrencyEnum.EURO:
+                    ch.value = (value / 1.16).toFixed(5)
+                    break;
+                case CurrencyEnum.USD:
+                    ch.value = (value / 1).toFixed(5)
+                    break;
+                case CurrencyEnum.GBP:
+                    ch.value = (value / 1.37).toFixed(5)
+                    break;
+                case CurrencyEnum.CZK:
+                    ch.value = (value / 0.046).toFixed(3)
+                    break;
+                default:
+                    ch.value = 'No Currency set'
 
-function getEuroCourse() {
-    const euroValue = apiData.price / 1.16;
-    return euroValue.toFixed(5);
-}
+            }
 
-function getUsdCourse() {
-    const usdValue = apiData.price / 1;
-    return usdValue.toFixed(5)
-}
+            ch.value.toString();
+            ch.symbole = SymboleEnum[this.currency]
 
-function getPoundCourse() {
-    const poundValue = apiData.price / 1.37;
-    return poundValue.toFixed(5);
-}
+            return ch
+        }
 
-function getCzkCourse() {
-    const czkValue = apiData.price / 0.046;
-    return czkValue.toFixed(3);
-}
+        async LogicalChangeCreator(val) {
+            let st = {}
+            if(val < 0) {
+                st.stateSymbole = '';
+                st.value = (val / 1).toFixed(2);
+                st.stateColor = ColorEnum.RED;
+            } else {
+                st.stateSymbole = '+';
+                st.value = (val / 1).toFixed(2);
+                st.stateColor = ColorEnum.GREEN;
+            }
 
-function selectCurrency () {
-    if(currency == "euro") {
-        return getEuroCourse().toString() + "€";
-    } else if (currency == "usd") {
-        return getUsdCourse().toString() + "$";
-    } else if (currency == "gbp"){
-        return getPoundCourse().toString() + "£";
-    } else if (currency == "czk") {
-        return getCzkCourse().toString() + "Kč";
-    } else { 
-        return "No Currency defined";
+            st.value.toString()
+            return st
+        }
+
+
     }
-}
 
-/* =========================================================
-    * Design and layout of the widget
-========================================================= */
+    class ViewModel {
+        constructor() {
+            this.BuildWidget()
 
-function createWidget() {
+        }
 
-    let listwidget = new ListWidget()
+        BuildWidget() {
+            let mainWidget = new ListWidget()
+            mainWidget.refreshAfterDate = new Date(Date.now() + refreshIntervalValue)
+            mainWidget.backgroundColor = Color.black()
+            this.widget = mainWidget;
+        }
+
+        async VisulizeInformation(items) {
+
+            let mainStack = this.widget.addStack()
+            mainStack.setPadding(8, 15, 0, 10);
+            mainStack.layoutHorizontally();
+            mainStack.centerAlignContent();
+
+            if (items.length == 0) {
+                let FailedMsg = mainStack.addText('Failed to fetch');
+                FailedMsg.textColor = Color.white();
+                FailedMsg.font = Font.systemFont(18);
+
+            } else {
+
+                let req = new Request(items.img.toString());
+                let res = await req.loadImage();
+
+                let appIconElement = mainStack.addImage(res)
 
 
-    listwidget.refreshAfterDate = new Date(Date.now() + 3600)
-
-    listwidget.backgroundColor = Color.black()
-
-    let logoStack = listwidget.addStack()
-    logoStack.setPadding(8, 15, 0, 10);
-    logoStack.layoutHorizontally();
-    logoStack.centerAlignContent();
-
-    let appIconElement = logoStack.addImage(nimiqLogo)
-    appIconElement.imageSize = new Size(45, 45)
-    appIconElement.centerAlignImage();
-    logoStack.addSpacer(12)
-
-    let logoTextStack = logoStack.addStack();
-    logoTextStack.layoutVertically();
-    logoTextStack.addSpacer(0);
-
-    let baseText = logoTextStack.addText("NIM");
-    baseText.textColor = Color.white();
-    baseText.font = Font.systemFont(18);
+                appIconElement.imageSize = new Size(45, 45)
+                appIconElement.centerAlignImage();
+                mainStack.addSpacer(12)
 
 
-    let actualValue = apiData.changedCoursePercentage / 1;
-    let course = null;
+                let logoTextStack = mainStack.addStack();
+                logoTextStack.layoutVertically();
+                logoTextStack.addSpacer(0);
 
-    if(actualValue < 0) {
-        course = logoTextStack.addText(actualValue.toFixed(2) + "%")
-        course.textColor = Color.red();
-    } else {
-        course = logoTextStack.addText("+" +actualValue.toFixed(2) + "%")
-        course.textColor = Color.green();
+                let baseText = logoTextStack.addText('NIM');
+                baseText.textColor = Color.white();
+                baseText.font = Font.systemFont(18);
+
+                let priceChanged = logoTextStack.addText(items.changed_price.stateSymbole + items.changed_price.value + '%');
+                priceChanged.textColor = new Color(items.changed_price.stateColor)
+                priceChanged.font = Font.systemFont(10);
+
+                this.widget.addSpacer(4)
+                let fullCoinName = this.widget.addText('NIMIQ');
+
+                fullCoinName.textColor = Color.white()
+                fullCoinName.font = Font.systemFont(12)
+                fullCoinName.centerAlignText()
+
+                mainStack.addSpacer(2)
+                let amountText = this.widget.addText('1 NIM =')
+                amountText.textColor = Color.gray();
+                amountText.font = Font.mediumSystemFont(10);
+                amountText.centerAlignText()
+
+                this.widget.addSpacer(8);
+
+
+                let nimiqPrice = this.widget.addText(items.price.value + items.price.symbole)
+                nimiqPrice.textColor = Color.orange()
+                nimiqPrice.centerAlignText()
+                nimiqPrice.font = Font.systemFont(16)
+            }
+
+            if (config.runsInApp) {
+                Script.setWidget(this.widget);
+                Script.complete();
+                this.widget.presentSmall()
+            } else {
+                this.widget.presentSmall();
+            }
+
+        }
+
+
     }
 
-    course.font = Font.systemFont(10)
+    class Controller {
+        constructor(model, view) {
+            this.model = model;
+            this.view = view;
 
-    listwidget.addSpacer(4)
-    let fullCoinName = listwidget.addText("NIMIQ");
+            this.handleShowInformation()
 
-    fullCoinName.textColor = Color.white()
-    fullCoinName.font = Font.systemFont(12)
-    fullCoinName.centerAlignText()
+        }
 
-    listwidget.addSpacer(2)
-    let amountText = listwidget.addText("1 NIM =")
-    amountText.textColor = Color.gray();
-    amountText.font = Font.mediumSystemFont(10);
-    amountText.centerAlignText()
+        handleShowInformation = async () => {
+            this.model.ReceiveInformationItem(this.onDataChanged)
 
-    listwidget.addSpacer(8);
+        }
 
-    let nimiqPrice = listwidget.addText(selectCurrency())
-    nimiqPrice.textColor = Color.orange()
-    nimiqPrice.centerAlignText()
-    nimiqPrice.font = Font.systemFont(16)
+        onDataChanged = async (item) => {
+            this.view.VisulizeInformation(item)
+        }
 
-    return listwidget;
+    }
+
+    return new Controller(new ModelData, new ViewModel)
 
 }
+
+AppControll();
